@@ -22,3 +22,31 @@
 .material-symbols-outlined.fill-1 {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
+
+/* Ocultação forçada e completa de badges, drawers e propaganda do Netlify */
+[data-netlify-identity-menu],
+[data-netlify-deploy-status],
+.netlify-identity-menu,
+#netlify-badge,
+.netlify-badge,
+[class*="netlify-badge"],
+[id*="netlify-badge"],
+[class*="netlify-drawer"],
+[id*="netlify-drawer"],
+[class*="NetlifyBadge"],
+[aria-label*="Netlify" i],
+[title*="Netlify" i],
+a[href*="netlify.com"][href*="utm_source"],
+a[href*="netlify.com"]:has(img[src*="netlify"]),
+iframe[src*="netlify"],
+div:has(> a[href*="netlify.com"]) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  z-index: -9999 !important;
+}

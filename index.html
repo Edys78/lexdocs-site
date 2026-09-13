@@ -16,6 +16,47 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Bloqueador de Badges e Injeções Automáticas do Netlify -->
+    <style>
+      [data-netlify-identity-menu], [data-netlify-deploy-status], #netlify-badge, .netlify-badge,
+      [class*="netlify-badge" i], [id*="netlify-badge" i], [class*="netlify-drawer" i], [id*="netlify-drawer" i],
+      [aria-label*="Netlify" i], [title*="Netlify" i], a[href*="netlify.com"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        position: absolute !important;
+        left: -9999px !important;
+        z-index: -99999 !important;
+      }
+    </style>
+    <script>
+      (function() {
+        function removeNetlifyBadge() {
+          const targets = document.querySelectorAll(
+            '#netlify-badge, .netlify-badge, [class*="netlify" i], [id*="netlify" i], a[href*="netlify.com"], iframe[src*="netlify"]'
+          );
+          targets.forEach(function(el) {
+            if (el.textContent && el.textContent.toLowerCase().includes('netlify')) {
+              el.remove();
+            } else if (el.tagName === 'A' && (el.getAttribute('href') || '').includes('netlify.com')) {
+              el.remove();
+            }
+          });
+        }
+        document.addEventListener('DOMContentLoaded', removeNetlifyBadge);
+        window.addEventListener('load', removeNetlifyBadge);
+        var observer = new MutationObserver(function() {
+          removeNetlifyBadge();
+        });
+        if (document.documentElement) {
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
