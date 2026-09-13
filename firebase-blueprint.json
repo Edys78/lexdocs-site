@@ -1,0 +1,44 @@
+{
+  "rules": {
+    "contatos": {
+      "description": "Mensagens enviadas pelo formulário de contato do site",
+      "fields": {
+        "nome": { "type": "string", "required": true },
+        "email": { "type": "string", "required": true },
+        "telefone": { "type": "string", "required": true },
+        "assunto": { "type": "string", "required": true },
+        "mensagem": { "type": "string", "required": true },
+        "origem": { "type": "string", "required": false },
+        "status": { "type": "string", "required": true },
+        "createdAt": { "type": "timestamp", "required": false }
+      }
+    },
+    "solicitacoes_analise": {
+      "description": "Solicitações de auditoria e triagem documental com dados de texto",
+      "fields": {
+        "fullName": { "type": "string", "required": true },
+        "email": { "type": "string", "required": true },
+        "phone": { "type": "string", "required": true },
+        "certType": { "type": "string", "required": false },
+        "objective": { "type": "string", "required": true },
+        "originRegistry": { "type": "string", "required": false },
+        "details": { "type": "string", "required": false },
+        "urgency": { "type": "string", "required": true },
+        "status": { "type": "string", "required": true },
+        "adminNotes": { "type": "string", "required": false },
+        "createdAt": { "type": "timestamp", "required": false },
+        "updatedAt": { "type": "timestamp", "required": false }
+      }
+    },
+    "interacoes_cliques": {
+      "description": "Registro de eventos de cliques e interações (WhatsApp, ligações, e-mail)",
+      "fields": {
+        "tipo": { "type": "string", "required": true },
+        "detalhe": { "type": "string", "required": false },
+        "pagina": { "type": "string", "required": false },
+        "data": { "type": "string", "required": false },
+        "createdAt": { "type": "timestamp", "required": false }
+      }
+    }
+  }
+}

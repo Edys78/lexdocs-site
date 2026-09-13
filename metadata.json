@@ -1,0 +1,6 @@
+{
+  "name": "Lexdocs Assessoria Documental",
+  "description": "Assessoria especializada em análise, qualificação técnica e organização de certidões e documentos para registros civis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
