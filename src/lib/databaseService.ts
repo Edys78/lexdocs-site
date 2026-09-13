@@ -19,9 +19,10 @@ export interface LeadContact {
   nome: string;
   email: string;
   telefone?: string;
-  assunto: string;
-  mensagem: string;
-  origem: string;
+  duvida?: string;
+  assunto?: string;
+  mensagem?: string;
+  origem?: string;
   documentos?: Array<{
     id: string;
     name: string;
@@ -68,10 +69,10 @@ export interface TrackingClickEvent {
   createdAt?: any;
 }
 
-// 1. Salvar Contato do Formulário de Contato com suporte a qualquer quantidade e tamanho de anexos
+// 1. Salvar Dúvida / Contato na coleção 'duvidas' do Firestore usando o SDK Modular
 export async function saveContactLead(data: Omit<LeadContact, 'status' | 'createdAt'>): Promise<string> {
   try {
-    const colRef = collection(db, 'contatos');
+    const colRef = collection(db, 'duvidas');
     const { documentos, ...restData } = data;
 
     // Calcular tamanho total aproximado dos anexos
@@ -90,9 +91,16 @@ export async function saveContactLead(data: Omit<LeadContact, 'status' | 'create
       ...(isUnderLimit ? { dataUrl: docItem.dataUrl } : {})
     }));
 
+    const duvidaText = restData.duvida || restData.mensagem || '';
+
     const docRef = await addDoc(colRef, {
-      ...restData,
+      nome: restData.nome,
       telefone: restData.telefone || '',
+      email: restData.email,
+      duvida: duvidaText,
+      mensagem: duvidaText,
+      assunto: restData.assunto || 'Dúvida Geral',
+      origem: restData.origem || 'formulario_contato',
       documentos: docsMetadata,
       status: 'novo',
       createdAt: serverTimestamp()
@@ -102,7 +110,7 @@ export async function saveContactLead(data: Omit<LeadContact, 'status' | 'create
     if (documentos && documentos.length > 0 && !isUnderLimit) {
       for (const docItem of documentos) {
         if (docItem.dataUrl) {
-          const fileDocRef = doc(db, 'contatos', docRef.id, 'arquivos', docItem.id);
+          const fileDocRef = doc(db, 'duvidas', docRef.id, 'arquivos', docItem.id);
           await setDoc(fileDocRef, {
             id: docItem.id,
             name: docItem.name,
@@ -118,16 +126,22 @@ export async function saveContactLead(data: Omit<LeadContact, 'status' | 'create
 
     return docRef.id;
   } catch (error) {
-    console.error('Erro ao salvar contato no Firebase:', error);
+    console.error('Erro ao salvar dúvida no Firebase:', error);
     throw error;
   }
 }
 
-// 1.1 Buscar arquivo específico de um contato (caso armazenado em subcoleção)
-export async function fetchContactFile(contactId: string, fileId: string): Promise<string | null> {
+// 1.1 Buscar arquivo específico de uma dúvida (caso armazenado em subcoleção)
+export async function fetchContactFile(duvidaId: string, fileId: string): Promise<string | null> {
   try {
-    const fileRef = doc(db, 'contatos', contactId, 'arquivos', fileId);
-    const snap = await getDoc(fileRef);
+    const fileRef = doc(db, 'duvidas', duvidaId, 'arquivos', fileId);
+    let snap = await getDoc(fileRef);
+    if (snap.exists()) {
+      return snap.data()?.dataUrl || null;
+    }
+    // Fallback para contatos caso venha de coleção legada
+    const legacyFileRef = doc(db, 'contatos', duvidaId, 'arquivos', fileId);
+    snap = await getDoc(legacyFileRef);
     if (snap.exists()) {
       return snap.data()?.dataUrl || null;
     }
@@ -193,24 +207,64 @@ export async function fetchAllAnalysisRequests(): Promise<DocumentAnalysisReques
   }
 }
 
-// 5. Listar contatos recebidos
+// 5. Listar dúvidas e contatos recebidos (para o Painel do Administrador)
 export async function fetchAllContacts(): Promise<LeadContact[]> {
   try {
-    const colRef = collection(db, 'contatos');
-    const q = query(colRef, orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as LeadContact[];
+    // Buscar da coleção principal 'duvidas'
+    const colRefDuvidas = collection(db, 'duvidas');
+    const snapDuvidas = await getDocs(query(colRefDuvidas, orderBy('createdAt', 'desc'))).catch(async () => {
+      return await getDocs(colRefDuvidas);
+    });
+
+    const duvidasList = snapDuvidas.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        nome: data.nome || 'Visitante',
+        email: data.email || '',
+        telefone: data.telefone || '',
+        duvida: data.duvida || data.mensagem || '',
+        assunto: data.assunto || 'Dúvida Geral',
+        mensagem: data.duvida || data.mensagem || '',
+        origem: data.origem || 'duvidas',
+        documentos: data.documentos || [],
+        status: data.status || 'novo',
+        adminNotes: data.adminNotes || '',
+        createdAt: data.createdAt
+      } as LeadContact;
+    });
+
+    // Também buscar de 'contatos' legados se houver
+    try {
+      const colRefContatos = collection(db, 'contatos');
+      const snapContatos = await getDocs(colRefContatos);
+      const contatosList = snapContatos.docs
+        .filter(d => !duvidasList.some(duv => duv.id === d.id))
+        .map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            nome: data.nome || 'Visitante',
+            email: data.email || '',
+            telefone: data.telefone || '',
+            duvida: data.duvida || data.mensagem || '',
+            assunto: data.assunto || 'Contato',
+            mensagem: data.mensagem || data.duvida || '',
+            origem: data.origem || 'contatos',
+            documentos: data.documentos || [],
+            status: data.status || 'novo',
+            adminNotes: data.adminNotes || '',
+            createdAt: data.createdAt
+          } as LeadContact;
+        });
+
+      return [...duvidasList, ...contatosList];
+    } catch {
+      return duvidasList;
+    }
   } catch (error) {
-    console.error('Erro ao buscar contatos:', error);
-    const colRef = collection(db, 'contatos');
-    const snapshot = await getDocs(colRef);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as LeadContact[];
+    console.error('Erro ao buscar dúvidas/contatos:', error);
+    return [];
   }
 }
 
@@ -233,27 +287,47 @@ export async function updateAnalysisStatus(
   }
 }
 
-// 7. Atualizar status de contato
+// 7. Atualizar status de dúvida ou contato
 export async function updateContactStatus(id: string, status: LeadContact['status'], adminNotes?: string): Promise<void> {
   try {
-    const docRef = doc(db, 'contatos', id);
-    await updateDoc(docRef, { 
-      status,
-      ...(adminNotes !== undefined ? { adminNotes } : {})
-    });
+    const duvidaRef = doc(db, 'duvidas', id);
+    try {
+      await updateDoc(duvidaRef, { 
+        status,
+        ...(adminNotes !== undefined ? { adminNotes } : {})
+      });
+      return;
+    } catch {
+      // Fallback para contatos
+      const docRef = doc(db, 'contatos', id);
+      await updateDoc(docRef, { 
+        status,
+        ...(adminNotes !== undefined ? { adminNotes } : {})
+      });
+    }
   } catch (error) {
-    console.error('Erro ao atualizar contato:', error);
+    console.error('Erro ao atualizar status do contato:', error);
     throw error;
   }
 }
 
-// 8. Excluir contato
+// 8. Excluir dúvida ou contato
 export async function deleteContactLead(id: string): Promise<void> {
   try {
-    const docRef = doc(db, 'contatos', id);
-    await deleteDoc(docRef);
+    const duvidaRef = doc(db, 'duvidas', id);
+    try {
+      await deleteDoc(duvidaRef);
+    } catch {
+      // Fallback
+    }
+    try {
+      const docRef = doc(db, 'contatos', id);
+      await deleteDoc(docRef);
+    } catch {
+      // Ignore
+    }
   } catch (error) {
-    console.error('Erro ao excluir contato:', error);
+    console.error('Erro ao excluir dúvida:', error);
     throw error;
   }
 }

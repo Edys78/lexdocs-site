@@ -1,11 +1,26 @@
 {
   "rules": {
+    "duvidas": {
+      "description": "Dúvidas e mensagens enviadas pelo formulário de contato",
+      "fields": {
+        "nome": { "type": "string", "required": true },
+        "telefone": { "type": "string", "required": false },
+        "email": { "type": "string", "required": true },
+        "duvida": { "type": "string", "required": true },
+        "assunto": { "type": "string", "required": false },
+        "mensagem": { "type": "string", "required": false },
+        "origem": { "type": "string", "required": false },
+        "documentos": { "type": "array", "required": false, "description": "Arquivos e certidões anexadas" },
+        "status": { "type": "string", "required": true },
+        "createdAt": { "type": "timestamp", "required": false }
+      }
+    },
     "contatos": {
-      "description": "Mensagens enviadas pelo formulário de contato do site",
+      "description": "Mensagens e contatos gerais do site",
       "fields": {
         "nome": { "type": "string", "required": true },
         "email": { "type": "string", "required": true },
-        "telefone": { "type": "string", "required": true },
+        "telefone": { "type": "string", "required": false },
         "assunto": { "type": "string", "required": true },
         "mensagem": { "type": "string", "required": true },
         "origem": { "type": "string", "required": false },

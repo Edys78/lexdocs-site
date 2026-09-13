@@ -2,6 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Dúvidas enviadas pelo formulário de contato
+    match /duvidas/{duvidaId} {
+      allow read, write: if true;
+      
+      match /{subcollection=**} {
+        allow read, write: if true;
+      }
+    }
+
     // Contatos enviados por visitantes (incluindo subcoleções de arquivos)
     match /contatos/{contactId} {
       allow read, write: if true;
