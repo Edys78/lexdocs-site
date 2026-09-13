@@ -4,6 +4,7 @@ import {
   STRATEGIC_PILLARS,
   PRACTICAL_COMMITMENTS,
 } from '../../data/content';
+import teamImage from '../../assets/images/lexdocs_team_1789319406578.jpg';
 
 interface HomeViewProps {
   onNavigate: (page: PageRoute) => void;
@@ -126,13 +127,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
             {/* Left: Office visual with overlay badge */}
             <div className="lg:col-span-6 relative rounded-2xl overflow-hidden min-h-[340px] sm:min-h-[420px] bg-[#0d1c32] shadow-sm flex flex-col justify-end">
               <img
-                src="/src/assets/images/lexdocs_team_1789319406578.jpg"
+                src={teamImage}
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (target.src !== '/lexdocs_team.jpg' && !target.src.endsWith('/lexdocs_team.jpg')) {
+                    target.src = '/lexdocs_team.jpg';
+                  }
+                }}
                 alt="Consultores da Lexdocs examinando certidões em escritório"
                 className="absolute inset-0 w-full h-full object-cover object-center opacity-90 transition-transform duration-500 hover:scale-105"
-                onError={(e) => {
-                  // Fallback to high quality unsplash if local image preview differs
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
+                loading="eager"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0d1c32]/90 via-[#0d1c32]/30 to-transparent"></div>
 
