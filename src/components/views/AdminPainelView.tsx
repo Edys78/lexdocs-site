@@ -6,6 +6,7 @@ import {
   updateContactStatus, 
   deleteAnalysisRequest,
   deleteContactLead,
+  fetchContactFile,
   DocumentAnalysisRequest,
   LeadContact
 } from '../../lib/databaseService';
@@ -25,6 +26,7 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{
     name: string;
     size?: number;
@@ -118,14 +120,45 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  const triggerDownload = (docItem: { name: string; dataUrl?: string }) => {
-    if (!docItem.dataUrl) return;
+  const handleViewDocument = async (leadId: string, docItem: { id: string; name: string; size?: number; type?: string; dataUrl?: string }) => {
+    if (docItem.dataUrl) {
+      setPreviewDoc(docItem);
+      return;
+    }
+    // Buscar da subcoleção se não estava inline
+    try {
+      const dataUrl = await fetchContactFile(leadId, docItem.id);
+      if (dataUrl) {
+        setPreviewDoc({ ...docItem, dataUrl });
+      } else {
+        alert('Documento não encontrado para visualização.');
+      }
+    } catch {
+      alert('Falha ao carregar anexo.');
+    }
+  };
+
+  const handleDownloadDocument = async (leadId: string, docItem: { id: string; name: string; dataUrl?: string }) => {
+    let dataUrl = docItem.dataUrl;
+    if (!dataUrl) {
+      dataUrl = (await fetchContactFile(leadId, docItem.id)) || undefined;
+    }
+    if (!dataUrl) {
+      alert('Não foi possível obter o arquivo para download.');
+      return;
+    }
     const a = document.createElement('a');
-    a.href = docItem.dataUrl;
-    a.download = docItem.name || 'documento.pdf';
+    a.href = dataUrl;
+    a.download = docItem.name || 'documento';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const handleCopyEmail = (email: string) => {
+    navigator.clipboard.writeText(email);
+    setCopiedEmail(email);
+    setTimeout(() => setCopiedEmail(null), 3000);
   };
 
   const formatDate = (timestamp: any) => {
@@ -537,7 +570,18 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                                 <span>Visualizar</span>
                               </button>
                               <button
-                                onClick={() => triggerDownload(doc)}
+                                onClick={() => {
+                                  if (doc.dataUrl) {
+                                    const a = document.createElement('a');
+                                    a.href = doc.dataUrl;
+                                    a.download = doc.name || 'documento';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                  } else if (selectedAnalysis?.id && doc.id) {
+                                    handleDownloadDocument(selectedAnalysis.id, doc);
+                                  }
+                                }}
                                 className="p-1 rounded-md bg-[#eceef0] hover:bg-[#e0e3e5] text-[#191c1e] text-[11.5px] transition-colors"
                                 title="Baixar documento"
                               >
@@ -641,7 +685,7 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <select
                         value={lead.status}
                         onChange={(e) => handleContactStatusChange(lead.id!, e.target.value as any)}
@@ -653,15 +697,27 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                         <option value="arquivado">Arquivado</option>
                       </select>
 
+                      {/* Botão de Responder por E-mail com Template Pré-formatado */}
                       <a
-                        href={`https://wa.me/55${lead.telefone.replace(/\D/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-colors"
-                        title="Abrir WhatsApp"
+                        href={`mailto:${lead.email}?subject=${encodeURIComponent(`Resposta: ${lead.assunto === 'duvidas' ? 'Dúvida sobre Registros Civis' : lead.assunto} - Lexdocs Assessoria Documental`)}&body=${encodeURIComponent(`Olá, ${lead.nome}!\n\nRecebemos sua mensagem enviada através de nossa plataforma sobre "${lead.assunto}":\n\n"${lead.mensagem}"\n\n---\nNossa análise preliminar e orientações:\n\n[Escreva sua resposta aqui]\n\nAtenciosamente,\nEquipe de Análise Documental | Lexdocs\nWhatsApp: (11) 95687-0620\nSite: lexdocs.com.br`)}`}
+                        className="px-3 py-1.5 rounded-lg bg-[#0d1c32] hover:bg-[#264191] text-white text-[12px] font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+                        title="Responder diretamente por E-mail"
                       >
-                        <span className="material-symbols-outlined text-[18px]">chat</span>
+                        <span className="material-symbols-outlined text-[16px]">mail</span>
+                        <span>Responder por E-mail</span>
                       </a>
+
+                      {lead.telefone && lead.telefone.trim() !== '' && (
+                        <a
+                          href={`https://wa.me/55${lead.telefone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-colors shadow-2xs"
+                          title="Abrir WhatsApp"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">chat</span>
+                        </a>
+                      )}
 
                       <button
                         onClick={() => handleDeleteContact(lead.id!)}
@@ -674,16 +730,33 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[13px] text-[#44474d]">
-                    <div>
-                      <strong>Telefone:</strong> {lead.telefone}
+                    <div className="flex items-center gap-1.5">
+                      <strong className="text-[#191c1e]">Telefone / WhatsApp:</strong>
+                      {lead.telefone && lead.telefone.trim() !== '' ? (
+                        <span>{lead.telefone}</span>
+                      ) : (
+                        <span className="text-[11.5px] font-mono text-[#75777e] bg-[#f2f4f6] px-2 py-0.5 rounded">
+                          Não informado (Contato via E-mail)
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <strong>E-mail:</strong> {lead.email}
+                    <div className="flex items-center gap-2">
+                      <strong className="text-[#191c1e]">E-mail:</strong>
+                      <a href={`mailto:${lead.email}`} className="text-[#264191] hover:underline font-medium">
+                        {lead.email}
+                      </a>
+                      <button
+                        onClick={() => handleCopyEmail(lead.email)}
+                        className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-[#eceef0] hover:bg-[#e0e3e5] text-[#191c1e] transition-colors"
+                        title="Copiar e-mail"
+                      >
+                        {copiedEmail === lead.email ? '✓ Copiado' : 'Copiar'}
+                      </button>
                     </div>
                   </div>
 
                   <div className="p-3.5 bg-[#f7f9fb] rounded-xl border border-[#e0e3e5] text-[13px] text-[#191c1e]">
-                    <strong className="block text-[12px] text-[#75777e] mb-1">Mensagem enviada:</strong>
+                    <strong className="block text-[12px] text-[#75777e] mb-1">Mensagem enviada pelo usuário:</strong>
                     <p className="leading-relaxed whitespace-pre-wrap">{lead.mensagem}</p>
                   </div>
 
@@ -692,10 +765,10 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                     <div className="p-3.5 bg-[#f0f4ff] rounded-xl border border-[#c7d7fe] flex flex-col gap-2.5">
                       <div className="flex items-center justify-between">
                         <strong className="text-[#191c1e] text-[12.5px] flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-rose-600 text-[18px]">
-                            picture_as_pdf
+                          <span className="material-symbols-outlined text-[#264191] text-[18px]">
+                            folder_open
                           </span>
-                          <span>Documentos / Certidões em PDF Anexados ({lead.documentos.length})</span>
+                          <span>Documentos & Certidões Anexados ({lead.documentos.length})</span>
                         </strong>
                         <span className="text-[11px] font-mono text-[#264191] bg-white px-2 py-0.5 rounded border border-[#c7d7fe]">
                           Salvo no Firebase
@@ -703,44 +776,47 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {lead.documentos.map((doc, idx) => (
-                          <div
-                            key={doc.id || idx}
-                            className="bg-white p-2.5 rounded-lg border border-[#e0e3e5] flex items-center justify-between gap-2 shadow-2xs"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="material-symbols-outlined text-rose-600 text-[20px] shrink-0">
-                                picture_as_pdf
-                              </span>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-[#191c1e] truncate text-[12.5px] max-w-[140px] sm:max-w-[180px]">
-                                  {doc.name}
-                                </p>
-                                <p className="text-[11px] text-[#75777e]">
-                                  {formatFileSize(doc.size)}
-                                </p>
+                        {lead.documentos.map((doc, idx) => {
+                          const isPdf = doc.type?.includes('pdf') || doc.name.toLowerCase().endsWith('.pdf');
+                          return (
+                            <div
+                              key={doc.id || idx}
+                              className="bg-white p-2.5 rounded-lg border border-[#e0e3e5] flex items-center justify-between gap-2 shadow-2xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`material-symbols-outlined text-[20px] shrink-0 ${isPdf ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  {isPdf ? 'picture_as_pdf' : 'image'}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-[#191c1e] truncate text-[12.5px] max-w-[140px] sm:max-w-[180px]">
+                                    {doc.name}
+                                  </p>
+                                  <p className="text-[11px] text-[#75777e]">
+                                    {formatFileSize(doc.size)} • {isPdf ? 'PDF' : 'Imagem'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => handleViewDocument(lead.id!, doc)}
+                                  className="px-2.5 py-1 rounded-md bg-[#0d1c32] hover:bg-[#264191] text-white text-[11.5px] font-medium transition-colors flex items-center gap-1"
+                                  title="Visualizar documento em tela cheia"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">visibility</span>
+                                  <span>Visualizar</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDownloadDocument(lead.id!, doc)}
+                                  className="p-1 rounded-md bg-[#eceef0] hover:bg-[#e0e3e5] text-[#191c1e] text-[11.5px] transition-colors"
+                                  title="Baixar arquivo original"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">download</span>
+                                </button>
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => setPreviewDoc(doc)}
-                                className="px-2.5 py-1 rounded-md bg-[#0d1c32] hover:bg-[#264191] text-white text-[11.5px] font-medium transition-colors flex items-center gap-1"
-                                title="Visualizar documento em tela cheia"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">visibility</span>
-                                <span>Visualizar</span>
-                              </button>
-                              <button
-                                onClick={() => triggerDownload(doc)}
-                                className="p-1 rounded-md bg-[#eceef0] hover:bg-[#e0e3e5] text-[#191c1e] text-[11.5px] transition-colors"
-                                title="Baixar PDF original"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">download</span>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

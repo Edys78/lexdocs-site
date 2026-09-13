@@ -1,7 +1,9 @@
 import { 
   collection, 
   addDoc, 
+  setDoc,
   getDocs, 
+  getDoc,
   doc, 
   updateDoc, 
   deleteDoc, 
@@ -16,7 +18,7 @@ export interface LeadContact {
   id?: string;
   nome: string;
   email: string;
-  telefone: string;
+  telefone?: string;
   assunto: string;
   mensagem: string;
   origem: string;
@@ -37,7 +39,7 @@ export interface DocumentAnalysisRequest {
   id?: string;
   fullName: string;
   email: string;
-  phone: string;
+  phone?: string;
   certType?: string;
   objective: string;
   originRegistry?: string;
@@ -66,19 +68,73 @@ export interface TrackingClickEvent {
   createdAt?: any;
 }
 
-// 1. Salvar Contato do Formulário de Contato
+// 1. Salvar Contato do Formulário de Contato com suporte a qualquer quantidade e tamanho de anexos
 export async function saveContactLead(data: Omit<LeadContact, 'status' | 'createdAt'>): Promise<string> {
   try {
     const colRef = collection(db, 'contatos');
+    const { documentos, ...restData } = data;
+
+    // Calcular tamanho total aproximado dos anexos
+    const totalDataSize = (documentos || []).reduce((acc, d) => acc + (d.dataUrl?.length || 0), 0);
+
+    // Se o tamanho total for pequeno (< 500KB), mantemos o dataUrl diretamente no documento para performance
+    const isUnderLimit = totalDataSize < 500 * 1024;
+
+    // Metadados dos documentos para o documento principal
+    const docsMetadata = (documentos || []).map(docItem => ({
+      id: docItem.id,
+      name: docItem.name,
+      size: docItem.size,
+      type: docItem.type,
+      uploadedAt: docItem.uploadedAt,
+      ...(isUnderLimit ? { dataUrl: docItem.dataUrl } : {})
+    }));
+
     const docRef = await addDoc(colRef, {
-      ...data,
+      ...restData,
+      telefone: restData.telefone || '',
+      documentos: docsMetadata,
       status: 'novo',
       createdAt: serverTimestamp()
     });
+
+    // Se houver arquivos e o tamanho total for maior, gravamos cada arquivo na subcoleção individualmente
+    if (documentos && documentos.length > 0 && !isUnderLimit) {
+      for (const docItem of documentos) {
+        if (docItem.dataUrl) {
+          const fileDocRef = doc(db, 'contatos', docRef.id, 'arquivos', docItem.id);
+          await setDoc(fileDocRef, {
+            id: docItem.id,
+            name: docItem.name,
+            size: docItem.size,
+            type: docItem.type,
+            dataUrl: docItem.dataUrl,
+            uploadedAt: docItem.uploadedAt,
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+    }
+
     return docRef.id;
   } catch (error) {
     console.error('Erro ao salvar contato no Firebase:', error);
     throw error;
+  }
+}
+
+// 1.1 Buscar arquivo específico de um contato (caso armazenado em subcoleção)
+export async function fetchContactFile(contactId: string, fileId: string): Promise<string | null> {
+  try {
+    const fileRef = doc(db, 'contatos', contactId, 'arquivos', fileId);
+    const snap = await getDoc(fileRef);
+    if (snap.exists()) {
+      return snap.data()?.dataUrl || null;
+    }
+    return null;
+  } catch (err) {
+    console.error('Erro ao buscar arquivo da subcoleção:', err);
+    return null;
   }
 }
 
@@ -90,6 +146,7 @@ export async function saveAnalysisRequest(
     const colRef = collection(db, 'solicitacoes_analise');
     const docRef = await addDoc(colRef, {
       ...data,
+      phone: data.phone || '',
       status: 'pendente',
       adminNotes: '',
       createdAt: serverTimestamp(),

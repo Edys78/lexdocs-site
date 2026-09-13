@@ -2,25 +2,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Contatos enviados por visitantes
+    // Contatos enviados por visitantes (incluindo subcoleções de arquivos)
     match /contatos/{contactId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if true;
+      allow read, write: if true;
+      
+      match /{subcollection=**} {
+        allow read, write: if true;
+      }
     }
     
     // Solicitações de Análise e Documentos anexados
     match /solicitacoes_analise/{requestId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if true;
+      allow read, write: if true;
+
+      match /{subcollection=**} {
+        allow read, write: if true;
+      }
     }
     
     // Rastreamento de cliques em canais de contato
     match /interacoes_cliques/{clickId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if true;
+      allow read, write: if true;
     }
   }
 }
