@@ -1,6 +1,7 @@
 import React from 'react';
 import { PageRoute } from '../../types';
 import { STRATEGIC_PILLARS, PRACTICAL_COMMITMENTS } from '../../data/content';
+import teamImage from '../../assets/images/lexdocs_team_1789319406578.jpg';
 
 interface SobreViewProps {
   onNavigate: (page: PageRoute) => void;
@@ -38,11 +39,15 @@ export const SobreView: React.FC<SobreViewProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-6 relative rounded-2xl overflow-hidden min-h-[360px] bg-[#0d1c32] shadow-sm">
               <img
-                src="/src/assets/images/lexdocs_team_1789319406578.jpg"
-                alt="Equipe técnica da Lexdocs"
-                className="w-full h-full object-cover"
+                src={teamImage}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/lexdocs_team.jpg';
+                }}
+                alt="Equipe técnica da Lexdocs Assessoria Documental"
+                className="w-full h-full object-cover min-h-[360px]"
+                loading="eager"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0d1c32]/80 via-transparent to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0d1c32]/85 via-transparent to-transparent pointer-events-none"></div>
               <div className="absolute bottom-4 left-4 right-4 p-4 rounded-xl bg-white/95 backdrop-blur-md border border-white/60">
                 <div className="flex items-center justify-between text-[#191c1e]">
                   <span className="font-mono text-[11px] font-bold text-[#264191] uppercase">
