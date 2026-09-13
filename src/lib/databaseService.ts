@@ -20,7 +20,16 @@ export interface LeadContact {
   assunto: string;
   mensagem: string;
   origem: string;
+  documentos?: Array<{
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+    dataUrl?: string;
+    uploadedAt: string;
+  }>;
   status: 'novo' | 'em_atendimento' | 'concluido' | 'arquivado';
+  adminNotes?: string;
   createdAt?: Timestamp | Date | any;
 }
 
@@ -168,17 +177,31 @@ export async function updateAnalysisStatus(
 }
 
 // 7. Atualizar status de contato
-export async function updateContactStatus(id: string, status: LeadContact['status']): Promise<void> {
+export async function updateContactStatus(id: string, status: LeadContact['status'], adminNotes?: string): Promise<void> {
   try {
     const docRef = doc(db, 'contatos', id);
-    await updateDoc(docRef, { status });
+    await updateDoc(docRef, { 
+      status,
+      ...(adminNotes !== undefined ? { adminNotes } : {})
+    });
   } catch (error) {
     console.error('Erro ao atualizar contato:', error);
     throw error;
   }
 }
 
-// 8. Excluir solicitação
+// 8. Excluir contato
+export async function deleteContactLead(id: string): Promise<void> {
+  try {
+    const docRef = doc(db, 'contatos', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Erro ao excluir contato:', error);
+    throw error;
+  }
+}
+
+// 9. Excluir solicitação
 export async function deleteAnalysisRequest(id: string): Promise<void> {
   try {
     const docRef = doc(db, 'solicitacoes_analise', id);

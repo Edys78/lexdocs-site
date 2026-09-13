@@ -5,9 +5,11 @@ import {
   updateAnalysisStatus, 
   updateContactStatus, 
   deleteAnalysisRequest,
+  deleteContactLead,
   DocumentAnalysisRequest,
   LeadContact
 } from '../../lib/databaseService';
+import { PdfPreviewModal } from '../modals/PdfPreviewModal';
 
 interface AdminPainelViewProps {
   onBackToSite: () => void;
@@ -23,6 +25,12 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<{
+    name: string;
+    size?: number;
+    type?: string;
+    dataUrl?: string;
+  } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -80,6 +88,16 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
     }
   };
 
+  const handleDeleteContact = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja remover esta mensagem do banco de dados?')) return;
+    try {
+      await deleteContactLead(id);
+      setContatos(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      alert('Erro ao excluir contato.');
+    }
+  };
+
   const handleDeleteAnalysis = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja remover esta solicitação do banco de dados?')) return;
     try {
@@ -91,6 +109,23 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
     } catch (error) {
       alert('Erro ao excluir registro.');
     }
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const triggerDownload = (docItem: { name: string; dataUrl?: string }) => {
+    if (!docItem.dataUrl) return;
+    const a = document.createElement('a');
+    a.href = docItem.dataUrl;
+    a.download = docItem.name || 'documento.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const formatDate = (timestamp: any) => {
@@ -458,6 +493,63 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                     </div>
                   </div>
 
+                  {/* Attached Documents for Analysis */}
+                  {selectedAnalysis.documents && selectedAnalysis.documents.length > 0 && (
+                    <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 text-[13px] flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-[#191c1e] flex items-center gap-1.5 text-[12.5px]">
+                          <span className="material-symbols-outlined text-rose-600 text-[18px]">
+                            picture_as_pdf
+                          </span>
+                          <span>Arquivos em PDF / Certidões ({selectedAnalysis.documents.length})</span>
+                        </strong>
+                        <span className="text-[11px] font-mono text-amber-900 bg-amber-100 px-2 py-0.5 rounded">
+                          Disponível para Análise
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        {selectedAnalysis.documents.map((doc, idx) => (
+                          <div
+                            key={doc.id || idx}
+                            className="bg-white p-2.5 rounded-lg border border-amber-200/80 flex items-center justify-between gap-2 shadow-2xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="material-symbols-outlined text-rose-600 text-[20px] shrink-0">
+                                description
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-[#191c1e] truncate text-[12.5px] max-w-[180px] sm:max-w-xs">
+                                  {doc.name}
+                                </p>
+                                <p className="text-[11px] text-[#75777e]">
+                                  {formatFileSize(doc.size)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => setPreviewDoc(doc)}
+                                className="px-2.5 py-1 rounded-md bg-[#0d1c32] hover:bg-[#264191] text-white text-[11.5px] font-medium transition-colors flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">visibility</span>
+                                <span>Visualizar</span>
+                              </button>
+                              <button
+                                onClick={() => triggerDownload(doc)}
+                                className="p-1 rounded-md bg-[#eceef0] hover:bg-[#e0e3e5] text-[#191c1e] text-[11.5px] transition-colors"
+                                title="Baixar documento"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">download</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Status update selector */}
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[12.5px] font-semibold text-[#191c1e]">
@@ -537,6 +629,12 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                         <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-[#eceef0] text-[#264191]">
                           Assunto: {lead.assunto}
                         </span>
+                        {lead.documentos && lead.documentos.length > 0 && (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">picture_as_pdf</span>
+                            <span>{lead.documentos.length} PDF(s)</span>
+                          </span>
+                        )}
                       </div>
                       <span className="text-[12px] text-[#75777e]">
                         Enviado em {formatDate(lead.createdAt)}
@@ -564,6 +662,14 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                       >
                         <span className="material-symbols-outlined text-[18px]">chat</span>
                       </a>
+
+                      <button
+                        onClick={() => handleDeleteContact(lead.id!)}
+                        className="p-1.5 rounded-lg text-[#75777e] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Excluir mensagem"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
                     </div>
                   </div>
 
@@ -580,12 +686,77 @@ export const AdminPainelView: React.FC<AdminPainelViewProps> = ({ onBackToSite }
                     <strong className="block text-[12px] text-[#75777e] mb-1">Mensagem enviada:</strong>
                     <p className="leading-relaxed whitespace-pre-wrap">{lead.mensagem}</p>
                   </div>
+
+                  {/* Attached Documents for Contact Lead */}
+                  {lead.documentos && lead.documentos.length > 0 && (
+                    <div className="p-3.5 bg-[#f0f4ff] rounded-xl border border-[#c7d7fe] flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-[#191c1e] text-[12.5px] flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-rose-600 text-[18px]">
+                            picture_as_pdf
+                          </span>
+                          <span>Documentos / Certidões em PDF Anexados ({lead.documentos.length})</span>
+                        </strong>
+                        <span className="text-[11px] font-mono text-[#264191] bg-white px-2 py-0.5 rounded border border-[#c7d7fe]">
+                          Salvo no Firebase
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {lead.documentos.map((doc, idx) => (
+                          <div
+                            key={doc.id || idx}
+                            className="bg-white p-2.5 rounded-lg border border-[#e0e3e5] flex items-center justify-between gap-2 shadow-2xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="material-symbols-outlined text-rose-600 text-[20px] shrink-0">
+                                picture_as_pdf
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-[#191c1e] truncate text-[12.5px] max-w-[140px] sm:max-w-[180px]">
+                                  {doc.name}
+                                </p>
+                                <p className="text-[11px] text-[#75777e]">
+                                  {formatFileSize(doc.size)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => setPreviewDoc(doc)}
+                                className="px-2.5 py-1 rounded-md bg-[#0d1c32] hover:bg-[#264191] text-white text-[11.5px] font-medium transition-colors flex items-center gap-1"
+                                title="Visualizar documento em tela cheia"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">visibility</span>
+                                <span>Visualizar</span>
+                              </button>
+                              <button
+                                onClick={() => triggerDownload(doc)}
+                                className="p-1 rounded-md bg-[#eceef0] hover:bg-[#e0e3e5] text-[#191c1e] text-[11.5px] transition-colors"
+                                title="Baixar PDF original"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">download</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
         )}
       </div>
+
+      {/* PDF & Document Full-screen Preview Modal */}
+      <PdfPreviewModal
+        isOpen={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        document={previewDoc}
+      />
     </div>
   );
 };

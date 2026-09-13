@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { PageRoute } from '../../types';
 import { saveContactLead, recordInteractionEvent } from '../../lib/databaseService';
 
 interface ContatoViewProps {
   onNavigate: (page: PageRoute) => void;
   onOpenAnalysisModal: () => void;
+}
+
+interface AttachedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl?: string;
+  uploadedAt: string;
 }
 
 export const ContatoView: React.FC<ContatoViewProps> = ({
@@ -18,9 +27,79 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
     assunto: 'triagem',
     mensagem: '',
   });
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const processFiles = (files: FileList | File[]) => {
+    setFileError(null);
+    const newFiles: File[] = Array.from(files);
+
+    newFiles.forEach((file) => {
+      // Validate file type
+      const isAllowed = 
+        file.type === 'application/pdf' || 
+        file.name.toLowerCase().endsWith('.pdf') ||
+        file.type.startsWith('image/');
+
+      if (!isAllowed) {
+        setFileError('Por favor, anexe arquivos em formato PDF ou imagem (.pdf, .jpg, .png).');
+        return;
+      }
+
+      // Check single file size (max 3.5MB warning, recommend under 1MB for fastest database indexing)
+      if (file.size > 4 * 1024 * 1024) {
+        setFileError(`O arquivo "${file.name}" excede o limite máximo de 4MB.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const fileData: AttachedFile = {
+          id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          name: file.name,
+          size: file.size,
+          type: file.type || 'application/pdf',
+          dataUrl: reader.result as string,
+          uploadedAt: new Date().toISOString(),
+        };
+
+        setAttachedFiles((prev) => [...prev, fileData]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(e.target.files);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
+    }
+  };
+
+  const removeFile = (id: string) => {
+    setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +107,7 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
     setErrorMessage(null);
 
     try {
-      // Salvar diretamente no Firebase Firestore
+      // Salvar diretamente no Firebase Firestore com os documentos anexados
       await saveContactLead({
         nome: formData.nome,
         email: formData.email,
@@ -36,12 +115,13 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
         assunto: formData.assunto,
         mensagem: formData.mensagem,
         origem: 'formulario_contato',
+        documentos: attachedFiles,
       });
 
       // Registrar evento de conversão
       recordInteractionEvent({
         tipo: 'button_cta',
-        detalhe: `Mensagem enviada por ${formData.nome} (${formData.assunto})`,
+        detalhe: `Mensagem enviada por ${formData.nome} (${formData.assunto}) com ${attachedFiles.length} documento(s)`,
         pagina: 'contato',
         data: new Date().toISOString()
       });
@@ -218,6 +298,114 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
                     />
                   </div>
 
+                  {/* Campo de Upload de PDF / Documentos */}
+                  <div className="flex flex-col gap-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-['Inter'] text-[13px] font-medium text-[#191c1e] flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[18px] text-[#264191]">
+                          attach_file
+                        </span>
+                        <span>Anexar Certidão ou Documento em PDF</span>
+                        <span className="text-[11px] text-[#75777e] font-normal">(Opcional)</span>
+                      </label>
+                      <span className="text-[11px] font-mono text-[#264191] bg-[#eef2ff] px-2 py-0.5 rounded">
+                        PDF / Imagens
+                      </span>
+                    </div>
+
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+                      multiple
+                      className="hidden"
+                      id="pdf-upload-input"
+                    />
+
+                    {/* Dropzone Area */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-4 sm:p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
+                        isDragging
+                          ? 'border-[#264191] bg-[#264191]/5 scale-[0.99]'
+                          : 'border-[#c5c6cd] hover:border-[#264191] bg-[#fcfdfe] hover:bg-[#f7f9fb]'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#eef2ff] text-[#264191] flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[24px]">
+                          upload_file
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="font-['Inter'] text-[13.5px] font-semibold text-[#191c1e]">
+                          Clique para anexar ou arraste o arquivo PDF aqui
+                        </p>
+                        <p className="font-['Inter'] text-[11.5px] text-[#75777e]">
+                          Formatos aceitos: PDF, JPG, PNG (enviado com segurança para o analista)
+                        </p>
+                      </div>
+                    </div>
+
+                    {fileError && (
+                      <div className="p-2.5 bg-rose-50 text-rose-700 text-[12px] rounded-lg border border-rose-200 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px]">info</span>
+                        <span>{fileError}</span>
+                      </div>
+                    )}
+
+                    {/* Lista de Arquivos Anexados */}
+                    {attachedFiles.length > 0 && (
+                      <div className="flex flex-col gap-2 mt-1">
+                        <span className="text-[12px] font-semibold text-[#191c1e]">
+                          Arquivos prontos para envio ({attachedFiles.length}):
+                        </span>
+                        <div className="grid grid-cols-1 gap-2">
+                          {attachedFiles.map((file) => (
+                            <div
+                              key={file.id}
+                              className="flex items-center justify-between p-2.5 bg-[#f7f9fb] rounded-lg border border-[#e0e3e5] text-[13px]"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="material-symbols-outlined text-rose-600 text-[22px] shrink-0">
+                                  picture_as_pdf
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-[#191c1e] truncate max-w-[240px] sm:max-w-xs">
+                                    {file.name}
+                                  </p>
+                                  <p className="text-[11px] text-[#75777e]">
+                                    {formatFileSize(file.size)} • PDF pronto para upload
+                                  </p>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFile(file.id);
+                                }}
+                                className="p-1 rounded text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Remover anexo"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">
+                                  delete
+                                </span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     type="submit"
                     disabled={isSubmitting}
@@ -228,12 +416,12 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
                         <span className="material-symbols-outlined text-[18px] animate-spin">
                           progress_activity
                         </span>
-                        <span>Salvando no Banco de Dados...</span>
+                        <span>Salvando no Firebase & Enviando Documentos...</span>
                       </>
                     ) : (
                       <>
                         <span className="material-symbols-outlined text-[18px]">send</span>
-                        <span>Enviar Mensagem para Análise</span>
+                        <span>Enviar Mensagem {attachedFiles.length > 0 ? `e ${attachedFiles.length} PDF(s)` : ''} para Análise</span>
                       </>
                     )}
                   </button>

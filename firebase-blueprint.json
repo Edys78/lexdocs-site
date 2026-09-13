@@ -9,6 +9,7 @@
         "assunto": { "type": "string", "required": true },
         "mensagem": { "type": "string", "required": true },
         "origem": { "type": "string", "required": false },
+        "documentos": { "type": "array", "required": false, "description": "Arquivos anexados em PDF ou imagem para análise" },
         "status": { "type": "string", "required": true },
         "createdAt": { "type": "timestamp", "required": false }
       }
