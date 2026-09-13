@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Folha de documento com dobra -->
+  <path d="M180 80H350L410 140V390H180V80Z" fill="#ffffff" stroke="#001838" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M350 80V140H410" stroke="#001838" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Linhas douradas de texto no documento -->
+  <path d="M205 130H320" stroke="#c08918" stroke-width="16" stroke-linecap="round"/>
+  <path d="M205 156H320" stroke="#c08918" stroke-width="16" stroke-linecap="round"/>
+  <path d="M205 180H375" stroke="#c08918" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Letra D Estilizada em Dourado -->
+  <path d="M200 205H280C345 205 385 245 385 305C385 365 340 380 280 380H195C225 360 250 310 250 250C250 230 240 215 200 205Z" fill="#c08918"/>
+  <path d="M200 205C230 205 375 205 375 295C375 380 270 380 195 380C235 345 240 275 200 205Z" fill="#c08918"/>
+
+  <!-- Letra L Serifada em Azul Marinho Profundo -->
+  <path d="M90 156H175V170C155 170 148 178 148 200V355C148 375 155 385 180 385H275C290 355 300 320 300 320L308 395H90V380C110 380 118 372 118 350V200C118 178 110 170 90 170V156Z" fill="#001838"/>
+
+  <!-- Lupa examinadora no canto inferior direito -->
+  <circle cx="365" cy="365" r="58" fill="#ffffff" stroke="#001838" stroke-width="20"/>
+  <!-- Linhas dentro da lente da lupa -->
+  <path d="M335 355H395" stroke="#001838" stroke-width="14" stroke-linecap="round"/>
+  <path d="M335 375H395" stroke="#001838" stroke-width="14" stroke-linecap="round"/>
+  <!-- Cabo da lupa -->
+  <path d="M408 408L460 460" stroke="#001838" stroke-width="26" stroke-linecap="round"/>
+</svg>

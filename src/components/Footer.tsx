@@ -165,7 +165,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         {/* Bottom Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 font-['Inter'] text-[12px] text-[#44474d] border-t border-[#e0e3e5] pt-6">
-          <p>© 2026 Lexdocs - Analista Documental. Todos os direitos reservados.</p>
+          <p>© 2026 Lexdocs Assessoria Documental. Todos os direitos reservados.</p>
           <div className="flex items-center gap-6">
             <span className="hover:text-[#191c1e] cursor-pointer">Segurança da Informação</span>
             <span className="hover:text-[#191c1e] cursor-pointer">Conformidade &amp; Privacidade</span>
