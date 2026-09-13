@@ -236,7 +236,8 @@ export const SolicitarAnaliseModal: React.FC<SolicitarAnaliseModalProps> = ({
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="(11) 98765-4321"
+                    placeholder=""
+                    autoComplete="off"
                     className="h-9 px-3 rounded-lg border border-[#e0e3e5] text-[13px] font-['Inter'] focus:outline-none focus:ring-2 focus:ring-[#264191]"
                   />
                 </div>

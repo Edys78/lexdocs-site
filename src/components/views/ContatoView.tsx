@@ -164,7 +164,8 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
                         required
                         value={formData.telefone}
                         onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                        placeholder="(11) 95687-0620"
+                        placeholder=""
+                        autoComplete="off"
                         className="h-10 px-3 rounded-lg border border-[#e0e3e5] font-['Inter'] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#264191]"
                       />
                     </div>
