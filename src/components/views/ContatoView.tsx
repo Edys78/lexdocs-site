@@ -473,9 +473,9 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
             <div className="lg:col-span-5 flex flex-col gap-5">
               {/* WhatsApp direct card */}
               <div className="bg-[#0d1c32] text-white rounded-2xl p-6 shadow-md flex flex-col gap-3">
-                <div className="flex items-center gap-2 text-[#eec14b]">
-                  <span className="material-symbols-outlined text-[20px]">chat</span>
-                  <span className="font-mono text-[11px] uppercase tracking-wider font-semibold">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[20px] text-[#25D366]">chat</span>
+                  <span className="font-mono text-[11px] uppercase tracking-wider font-semibold text-[#eec14b]">
                     Canal Prioritário
                   </span>
                 </div>
