@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import emailjs from '@emailjs/browser';
 import { PageRoute } from '../../types';
 import { saveContactLead, recordInteractionEvent } from '../../lib/databaseService';
 import { processUploadFile, ProcessedDocument } from '../../utils/fileUtils';
@@ -78,35 +79,68 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
     setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (evento: React.FormEvent) => {
+    evento.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    // Coleta as variáveis em letra minúscula para casar perfeitamente com o EmailJS
+    const nomeVal = (document.getElementById('nome') as HTMLInputElement)?.value ?? formData.nome;
+    const telefoneVal = (document.getElementById('telefone') as HTMLInputElement)?.value ?? formData.telefone;
+    const emailVal = (document.getElementById('email') as HTMLInputElement)?.value ?? formData.email;
+    const mensagemVal = (document.getElementById('mensagem') as HTMLTextAreaElement)?.value ?? formData.mensagem;
+
+    const dadosFormulario = {
+      nome: nomeVal,
+      telefone: telefoneVal,
+      email: emailVal,
+      mensagem: mensagemVal
+    };
+
     try {
-      // Salvar diretamente no Firebase Firestore com os documentos anexados (sem limites)
+      // 1. Mantém gravando no Firebase Cloud Firestore normalmente (com documentos/certidões anexadas)
       await saveContactLead({
-        nome: formData.nome.trim() || 'Cliente / Interessado',
-        email: formData.email.trim(),
-        telefone: formData.telefone.trim(),
+        nome: dadosFormulario.nome.trim() || 'Cliente / Interessado',
+        email: dadosFormulario.email.trim(),
+        telefone: dadosFormulario.telefone.trim(),
+        duvida: dadosFormulario.mensagem,
         assunto: formData.assunto,
-        mensagem: formData.mensagem,
+        mensagem: dadosFormulario.mensagem,
         origem: 'formulario_contato',
         documentos: attachedFiles,
       });
+      console.log("Firebase: Dados salvos com sucesso.");
+
+      // 2. Dispara a notificação definitiva via EmailJS para o celular apitar
+      await emailjs.send(
+        "service_lyfzjvw",
+        "template_3enlq2b",
+        dadosFormulario,
+        "QVWGT40NfdgslL4du"
+      );
+      console.log("EmailJS: Alerta enviado para o Gmail.");
 
       // Registrar evento de conversão
       recordInteractionEvent({
         tipo: 'button_cta',
-        detalhe: `Mensagem enviada por ${formData.nome || formData.email} (${formData.assunto}) com ${attachedFiles.length} anexo(s)`,
+        detalhe: `Mensagem enviada por ${dadosFormulario.nome || dadosFormulario.email} (${formData.assunto}) com ${attachedFiles.length} anexo(s)`,
         pagina: 'contato',
         data: new Date().toISOString()
       });
 
+      alert("Sua mensagem foi enviada com sucesso! Entraremos em contato em breve.");
+      
+      const formEl = document.getElementById('form-contato') as HTMLFormElement;
+      if (formEl) {
+        formEl.reset();
+      }
+      setFormData({ nome: '', email: '', telefone: '', assunto: 'duvidas', mensagem: '' });
+      setAttachedFiles([]);
       setSubmitted(true);
-    } catch (error) {
-      console.error('Erro ao enviar contato para o Firebase:', error);
-      setErrorMessage('Ocorreu um erro ao salvar sua mensagem no banco de dados. Por favor, tente novamente.');
+    } catch (erro) {
+      console.error("Erro completo no envio:", erro);
+      setErrorMessage("Ocorreu um erro ao processar seu envio. Tente novamente.");
+      alert("Ocorreu um erro ao processar seu envio. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +214,7 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <form id="form-contato" onSubmit={handleSubmit} className="flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <h2 className="font-['Plus_Jakarta_Sans'] font-bold text-[18px] text-[#191c1e]">
                       Envie sua Solicitação ou Dúvida
@@ -199,10 +233,12 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
+                      <label htmlFor="nome" className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
                         Nome Completo *
                       </label>
                       <input
+                        id="nome"
+                        name="nome"
                         type="text"
                         required
                         value={formData.nome}
@@ -213,11 +249,13 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-['Inter'] text-[13px] font-medium text-[#191c1e] flex items-center justify-between">
+                      <label htmlFor="telefone" className="font-['Inter'] text-[13px] font-medium text-[#191c1e] flex items-center justify-between">
                         <span>Telefone / WhatsApp</span>
                         <span className="text-[11px] text-[#75777e] font-normal">(Opcional)</span>
                       </label>
                       <input
+                        id="telefone"
+                        name="telefone"
                         type="tel"
                         value={formData.telefone}
                         onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
@@ -230,10 +268,12 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
+                      <label htmlFor="email" className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
                         E-mail para Retorno *
                       </label>
                       <input
+                        id="email"
+                        name="email"
                         type="email"
                         required
                         value={formData.email}
@@ -244,10 +284,12 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
+                      <label htmlFor="assunto" className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
                         Tipo de Assunto
                       </label>
                       <select
+                        id="assunto"
+                        name="assunto"
                         value={formData.assunto}
                         onChange={(e) => setFormData({ ...formData, assunto: e.target.value })}
                         className="h-10 px-3 rounded-lg border border-[#e0e3e5] font-['Inter'] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#264191] bg-white"
@@ -262,10 +304,12 @@ export const ContatoView: React.FC<ContatoViewProps> = ({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
+                    <label htmlFor="mensagem" className="font-['Inter'] text-[13px] font-medium text-[#191c1e]">
                       Detalhes da sua dúvida ou situação *
                     </label>
                     <textarea
+                      id="mensagem"
+                      name="mensagem"
                       required
                       rows={4}
                       value={formData.mensagem}
